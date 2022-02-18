@@ -1,0 +1,236 @@
+#################################################################
+# Pesquisa - Desenvolvimento regional no Noroeste Capixaba
+#################################################################
+
+##########
+# Pacotes
+##########
+
+library(readxl)
+library(dplyr)
+library(ggplot2)
+
+########################
+# Importação dos dados
+########################
+
+data <- read_excel("Ifes/2021-2/Pesquisa - SUDENE/Modelo/DadosReg2.xlsx")
+
+# Corrige problemas com as indicadoras nos dados originais
+
+data$projetos_ano_sn <- ifelse(data$projetos_ano == 0, 0, 1)
+data$pleitos_aprov_ano_sn <- ifelse(data$pleitos_aprov_ano == 0, 0, 1)
+
+data$projetos_ano_sn <- factor(data$projetos_ano_sn)
+data$pleitos_aprov_ano_sn <- factor(data$pleitos_aprov_ano_sn)
+
+##########
+# Filtros
+##########
+# Somente municípios com Sudene
+data <- data %>% filter(sudene == 1)
+
+# Mesorregiões de interesse
+data_regiao <- data %>% filter(mesorregiao == 'Noroeste Espírito-santense' | mesorregiao == 'Litoral Norte Espírito-santense')
+
+# Não existem observações do IFDM para antes de 2017
+data_ifdm <- data_regiao %>% filter(ano < 2017)
+
+# Converte ano para fator
+data_regiao$ano <- factor(data_regiao$ano)
+data_ifdm$ano   <- factor(data_ifdm$ano)
+
+# Remove os originais
+rm(data)
+
+comproj <- data %>% filter(pleitos_aprov_ano_sn == 1)
+semproj <- data %>% filter(pleitos_aprov_ano_sn == 0)
+
+######################
+# Análise exploratória
+######################
+
+head(data_ifdm) # cabeçalho
+
+glimpse(data_ifdm) # variáveis
+
+unique(data_ifdm$municipio) # quantos municípios?
+
+table(data_ifdm$pleitos_aprov_ano_sn)
+
+######################
+# ifdm geral
+######################
+
+data_ifdm %>% 
+  group_by(pleitos_aprov_ano_sn) %>% 
+  summarise(minimo = min(ifdm_geral),
+            maximo = max(ifdm_geral),
+            mediana = median(ifdm_geral),
+            media = mean(ifdm_geral),
+            dp = sd(ifdm_geral))
+
+ggplot(data_ifdm, 
+       aes(x = pleitos_aprov_ano_sn, y = ifdm_geral, 
+           fill = pleitos_aprov_ano_sn)) +
+  geom_boxplot() +
+  xlab('Grupo') +
+  ylab('IFDM Geral') +
+  theme_classic() +
+  theme(legend.position="none") +
+  theme(text = element_text(size = 24))
+
+out_ifdm_sem <- boxplot.stats(semproj$ifdm_geral)$out
+out_ind <- which(semproj$ifdm_geral %in% c(out_ifdm_sem))
+semproj$municipio[out_ind]
+semproj$ano[out_ind]
+
+################################################
+# Teste de hipóteses para diferença das médias
+################################################
+# Teste de normalidade
+
+comproj <- data %>% filter(pleitos_aprov_ano_sn == 1)
+semproj <- data %>% filter(pleitos_aprov_ano_sn == 0)
+
+shapiro.test(comproj$ifdm_geral)
+shapiro.test(semproj$ifdm_geral)
+
+# Teste de variâncias
+var.test(ifdm_geral ~ pleitos_aprov_ano_sn, data = data_ifdm)
+
+# Teste t
+
+t.test(comproj$ifdm_geral, semproj$ifdm_geral, var.equal = TRUE)
+
+######################
+# ifdm emprego e renda
+######################
+
+data_ifdm %>% 
+  group_by(pleitos_aprov_ano_sn) %>% 
+  summarise(minimo = min(ifdm_emprego_renda),
+            maximo = max(ifdm_emprego_renda),
+            mediana = median(ifdm_emprego_renda),
+            media = mean(ifdm_emprego_renda),
+            dp = sd(ifdm_emprego_renda))
+
+ggplot(data_ifdm, 
+       aes(x = pleitos_aprov_ano_sn, y = ifdm_emprego_renda, 
+           fill = pleitos_aprov_ano_sn)) +
+  geom_boxplot() +
+  xlab('Grupo') +
+  ylab('IFDM Emprego e Renda') +
+  theme_classic() +
+  theme(legend.position="none") +
+  theme(text = element_text(size = 24))
+
+################################################
+# Teste de hipóteses para diferença das médias
+################################################
+# Teste de normalidade
+
+shapiro.test(comproj$ifdm_emprego_renda)
+shapiro.test(semproj$ifdm_emprego_renda)
+
+# Teste de variâncias
+var.test(ifdm_emprego_renda ~ pleitos_aprov_ano_sn, data = data_ifdm)
+
+# Teste t
+
+t.test(comproj$ifdm_emprego_renda, semproj$ifdm_emprego_renda, var.equal = TRUE)
+t.test(comproj$ifdm_emprego_renda, semproj$ifdm_emprego_renda, var.equal = FALSE)
+
+# Mann-Whitney
+wilcox.test(comproj$ifdm_emprego_renda, semproj$ifdm_emprego_renda, alternative = 'two.sided')
+
+######################
+# ifdm educação
+######################
+
+data_ifdm %>% 
+  group_by(pleitos_aprov_ano_sn) %>% 
+  summarise(minimo = min(ifdm_educacao),
+            maximo = max(ifdm_educacao),
+            mediana = median(ifdm_educacao),
+            media = mean(ifdm_educacao),
+            dp = sd(ifdm_educacao))
+
+ggplot(data_ifdm, 
+       aes(x = pleitos_aprov_ano_sn, y = ifdm_educacao, 
+           fill = pleitos_aprov_ano_sn)) +
+  geom_boxplot() +
+  xlab('Grupo') +
+  ylab('IFDM Educação') +
+  theme_classic() +
+  theme(legend.position="none") +
+  theme(text = element_text(size = 24))
+
+out_ifdm_educacao_com <- boxplot.stats(comproj$ifdm_educacao)$out
+out_ind_educacao <- which(comproj$ifdm_educacao %in% c(out_ifdm_educacao_com))
+comproj$municipio[out_ind_educacao]
+comproj$ano[out_ind_educacao]
+
+################################################
+# Teste de hipóteses para diferença das médias
+################################################
+# Teste de normalidade
+
+shapiro.test(comproj$ifdm_educacao)
+shapiro.test(semproj$ifdm_educacao)
+
+# Teste de variâncias
+var.test(ifdm_educacao ~ pleitos_aprov_ano_sn, data = data_ifdm)
+
+# Teste t
+
+t.test(comproj$ifdm_educacao, semproj$ifdm_educacao, var.equal = TRUE)
+
+######################
+# ifdm saúde
+######################
+
+data_ifdm %>% 
+  group_by(pleitos_aprov_ano_sn) %>% 
+  summarise(minimo = min(ifdm_saude),
+            maximo = max(ifdm_saude),
+            mediana = median(ifdm_saude),
+            media = mean(ifdm_saude),
+            dp = sd(ifdm_saude))
+
+ggplot(data_ifdm, 
+       aes(x = pleitos_aprov_ano_sn, y = ifdm_saude, 
+           fill = pleitos_aprov_ano_sn)) +
+  geom_boxplot() +
+  xlab('Grupo') +
+  ylab('IFDM Saúde') +
+  theme_classic() +
+  theme(legend.position="none") +
+  theme(text = element_text(size = 24))
+
+out_ifdm_saude_com <- boxplot.stats(comproj$ifdm_saude)$out
+out_ind_saude_com <- which(comproj$ifdm_saude %in% c(out_ifdm_saude_com))
+comproj$municipio[out_ind_saude_com]
+comproj$ano[out_ind_saude_com]
+
+out_ifdm_saude_sem <- boxplot.stats(semproj$ifdm_saude)$out
+out_ind_saude_sem <- which(semproj$ifdm_saude %in% c(out_ifdm_saude_sem))
+semproj$municipio[out_ind_saude_sem]
+semproj$ano[out_ind_saude_sem]
+
+################################################
+# Teste de hipóteses para diferença das médias (t)
+################################################
+# Teste de normalidade
+
+shapiro.test(comproj$ifdm_saude)
+shapiro.test(semproj$ifdm_saude)
+
+# Teste de variâncias
+var.test(ifdm_saude ~ pleitos_aprov_ano_sn, data = data_ifdm)
+
+# Teste t
+
+t.test(comproj$ifdm_saude, semproj$ifdm_saude, var.equal = TRUE)
+
+wilcox.test(comproj$ifdm_saude, semproj$ifdm_saude, alternative = 'two.sided')
